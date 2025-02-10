@@ -7,7 +7,7 @@ import {CryptoRecurringWallet} from "./CryptoRecurringWallet.sol";
 contract CryptoRecurringFactory is Ownable2Step {
     address[] private s_wallets;
 
-    event generateWallet(address indexed wallet);
+    event GenerateWallet(address indexed wallet);
 
     constructor() Ownable(msg.sender) {}
 
@@ -21,7 +21,7 @@ contract CryptoRecurringFactory is Ownable2Step {
             new CryptoRecurringWallet(_user, _operators, _tokens, _contracts)
         );
         s_wallets.push(wallet);
-        emit generateWallet(wallet);
+        emit GenerateWallet(wallet);
     }
 
     function getWalletLength() public view returns (uint256) {
