@@ -2,8 +2,8 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {CryptoRecurringFactory} from "src/CryptoRecurringFactory.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {CryptoRecurringFactory} from "src/CryptoRecurringFactory.sol";
 
 contract CryptoRecurringFactoryTest is Test {
     CryptoRecurringFactory public cryptoRecurringFactory;
