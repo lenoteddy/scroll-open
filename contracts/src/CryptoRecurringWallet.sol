@@ -6,25 +6,26 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-error CryptoRecurringWallet__InvalidOperatorIndex();
-error CryptoRecurringWallet__InvalidTokenIndex();
-error CryptoRecurringWallet__InvalidContractIndex();
-error CryptoRecurringWallet__InsufficientETHBalance();
-error CryptoRecurringWallet__InsufficientTokenBalance();
-error CryptoRecurringWallet__NoTokenOut();
-error CryptoRecurringWallet__NoEtherOut();
-error CryptoRecurringWallet__NotAllowedOperator(address _operator);
-error CryptoRecurringWallet__NotAllowedContract(address _contract);
-error CryptoRecurringWallet__NotAllowedTokenIn(address _token);
-error CryptoRecurringWallet__NotAllowedTokenOut(address _token);
-error CryptoRecurringWallet__FailedTx(bytes _data);
-error CryptoRecurringWallet__FailedWithdrawEther(uint256 _amount);
-error CryptoRecurringWallet__FailedWithdrawToken(
-    address _token,
-    uint256 _amount
-);
-
 contract CryptoRecurringWallet is ReentrancyGuard, Ownable2Step {
+    /* Errors */
+    error CryptoRecurringWallet__InvalidOperatorIndex();
+    error CryptoRecurringWallet__InvalidTokenIndex();
+    error CryptoRecurringWallet__InvalidContractIndex();
+    error CryptoRecurringWallet__InsufficientETHBalance();
+    error CryptoRecurringWallet__InsufficientTokenBalance();
+    error CryptoRecurringWallet__NoTokenOut();
+    error CryptoRecurringWallet__NoEtherOut();
+    error CryptoRecurringWallet__NotAllowedOperator(address _operator);
+    error CryptoRecurringWallet__NotAllowedContract(address _contract);
+    error CryptoRecurringWallet__NotAllowedTokenIn(address _token);
+    error CryptoRecurringWallet__NotAllowedTokenOut(address _token);
+    error CryptoRecurringWallet__FailedTx(bytes _data);
+    error CryptoRecurringWallet__FailedWithdrawEther(uint256 _amount);
+    error CryptoRecurringWallet__FailedWithdrawToken(
+        address _token,
+        uint256 _amount
+    );
+
     using SafeERC20 for IERC20;
 
     address[] private s_operators;
@@ -151,9 +152,7 @@ contract CryptoRecurringWallet is ReentrancyGuard, Ownable2Step {
     }
 
     function withdrawToken(address _token, uint256 _amount) external onlyOwner {
-        if (!IERC20(_token).transfer(owner(), _amount)) {
-            revert CryptoRecurringWallet__FailedWithdrawToken(_token, _amount);
-        }
+        IERC20(_token).transfer(owner(), _amount);
     }
 
     function addOperators(address _operator) external onlyOwner {
@@ -163,7 +162,7 @@ contract CryptoRecurringWallet is ReentrancyGuard, Ownable2Step {
     }
 
     function removeOperators(uint256 _index) external onlyOwner {
-        if (_index > s_operators.length - 1) {
+        if (s_operators.length == 0 || _index > s_operators.length - 1) {
             revert CryptoRecurringWallet__InvalidOperatorIndex();
         }
         address operatorToRemove = s_operators[_index];
@@ -186,7 +185,7 @@ contract CryptoRecurringWallet is ReentrancyGuard, Ownable2Step {
     }
 
     function removeTokens(uint256 _index) external onlyOwner {
-        if (_index > s_tokens.length - 1) {
+        if (s_tokens.length == 0 || _index > s_tokens.length - 1) {
             revert CryptoRecurringWallet__InvalidTokenIndex();
         }
         address tokenToRemove = s_tokens[_index];
@@ -209,7 +208,7 @@ contract CryptoRecurringWallet is ReentrancyGuard, Ownable2Step {
     }
 
     function removeContracts(uint256 _index) external onlyOwner {
-        if (_index > s_contracts.length - 1) {
+        if (s_contracts.length == 0 || _index > s_contracts.length - 1) {
             revert CryptoRecurringWallet__InvalidContractIndex();
         }
         address contractToRemove = s_contracts[_index];
@@ -225,7 +224,7 @@ contract CryptoRecurringWallet is ReentrancyGuard, Ownable2Step {
         emit SetContractsList(_contracts);
     }
 
-    function getOperatorLength() public view returns (uint256) {
+    function getOperatorsLength() public view returns (uint256) {
         return s_operators.length;
     }
 
