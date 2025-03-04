@@ -1,10 +1,8 @@
+import { ConnectKitButton } from "connectkit";
 import Logo from "./assets/logo.png";
+import StringHelper from "./helpers/StringHelper";
 
 function App() {
-	const connectWallet = async () => {
-		// TODO: connect wallet functionality
-	};
-
 	return (
 		<div className="container">
 			<header>
@@ -16,9 +14,15 @@ function App() {
 							<p className="text-xs">automate your crypto investment</p>
 						</div>
 					</a>
-					<button className="btn-connect-wallet" onClick={connectWallet}>
-						Connect Wallet
-					</button>
+					<ConnectKitButton.Custom>
+						{({ show, isConnected, address }) => {
+							return (
+								<button className="btn-connect-wallet" onClick={show}>
+									{isConnected && address ? StringHelper.shortHex(address) : "Connect Wallet"}
+								</button>
+							);
+						}}
+					</ConnectKitButton.Custom>
 				</nav>
 			</header>
 			{/* TODO: create body */}
