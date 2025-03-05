@@ -1,9 +1,11 @@
-import { ConnectKitButton } from "connectkit";
+import { useState } from "react";
+import { useChains, ChainIcon, ConnectKitButton } from "connectkit";
+import { useAccount, useBalance, useSwitchChain } from "wagmi";
 import StringHelper from "./helpers/StringHelper";
 import Logo from "./assets/logo.png";
 import IconTelegram from "./assets/i-telegram.svg";
 import IconX from "./assets/i-x.svg";
-import { useState } from "react";
+import { formatEther } from "viem";
 
 function App() {
 	const stepList = [
@@ -13,6 +15,10 @@ function App() {
 		{ id: 4, title: "Track Transaction", description: "Monitor your investment automation transaction" },
 	];
 	const [step, setStep] = useState(0);
+	const { address, chain } = useAccount();
+	const { data: balance, isLoading } = useBalance({ address });
+	const chains = useChains();
+	const { switchChain } = useSwitchChain();
 
 	return (
 		<div className="container">
@@ -65,7 +71,58 @@ function App() {
 						<h3 className="text-xl font-semibold">{stepList[step]?.title}</h3>
 						<p className="text-md italic">{stepList[step]?.description}</p>
 						{/* TODO: step by step process */}
-						<div className="mt-4"></div>
+						{step === 0 && (
+							<div className="mt-4">
+								{address ? (
+									<div>
+										<div className="mb-2">
+											<div className="font-bold">Wallet address:</div>
+											<div className="text-sm italic">{address}</div>
+										</div>
+										<div className="mb-2">
+											<div className="font-bold">ETH balance:</div>
+											<div className="text-sm italic">{isLoading ? "..." : formatEther(BigInt(balance?.value || 0)) + " ETH"}</div>
+										</div>
+										<div className="mb-2">
+											<div className="font-bold">Chain Info:</div>
+											{!chain ? (
+												<div className="text-sm italic font-semibold">Unsupported network!</div>
+											) : (
+												<div className="text-sm italic">{`${chain?.name} (${chain?.id})`}</div>
+											)}
+										</div>
+										{!chain && (
+											<div className="mt-6 mb-2">
+												<div className="mb-1 italic">This dApp is supported on the following chains:</div>
+												<ul className="flex items-center gap-x-6">
+													{chains.map((chain) => (
+														<li key={chain.id}>
+															<button className="w-fit flex items-center gap-x-2 cursor-pointer btn-network" onClick={() => switchChain({ chainId: chain.id })}>
+																<ChainIcon id={chain.id} />
+																<span className="font-semibold">{chain.name}</span>
+															</button>
+														</li>
+													))}
+												</ul>
+												<p className="mt-2 text-xs italic">*click the chain button to switch chain</p>
+											</div>
+										)}
+									</div>
+								) : (
+									<div className="mx-auto text-center">
+										<ConnectKitButton.Custom>
+											{({ show, isConnected, address }) => {
+												return (
+													<button className="btn-connect-wallet" onClick={show}>
+														{isConnected && address ? StringHelper.shortHex(address) : "Connect Wallet"}
+													</button>
+												);
+											}}
+										</ConnectKitButton.Custom>
+									</div>
+								)}
+							</div>
+						)}
 					</div>
 				</div>
 			</main>

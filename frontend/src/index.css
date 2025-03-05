@@ -29,3 +29,10 @@
 	background-color: #121827;
 	color: #ffffff;
 }
+.btn-network {
+	padding: 0.5rem 1.25rem;
+	border-radius: 1rem;
+	background-color: #f4f4f4;
+	text-align: center;
+	color: #000000;
+}
