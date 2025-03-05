@@ -15,3 +15,17 @@
 	color: #ffffff;
 	cursor: pointer;
 }
+.btn-step-by-step {
+	width: 3rem;
+	height: 3rem;
+	line-height: 3rem;
+	border-radius: 50%;
+	background-color: #f4f4f4;
+	text-align: center;
+	font-size: 1.25rem;
+	color: #000000;
+}
+.btn-step-by-step.active {
+	background-color: #121827;
+	color: #ffffff;
+}
