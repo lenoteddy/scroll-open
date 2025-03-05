@@ -10,8 +10,8 @@ import { formatEther } from "viem";
 function App() {
 	const stepList = [
 		{ id: 1, title: "Connect Wallet", description: "Please connect wallet to proceed with other action" },
-		{ id: 2, title: "Setup Vault", description: "Create or use existing vaults for transaction" },
-		{ id: 3, title: "Setup Plan", description: "Create or modify automate investment plans to execute" },
+		{ id: 2, title: "Setup Plan", description: "Create or modify automate investment plans to execute" },
+		{ id: 3, title: "Setup Vault", description: "Create or use existing vaults for transaction" },
 		{ id: 4, title: "Track Transaction", description: "Monitor your investment automation transaction" },
 	];
 	const [step, setStep] = useState(0);
