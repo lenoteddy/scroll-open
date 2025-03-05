@@ -14,11 +14,28 @@ function App() {
 		{ id: 3, title: "Setup Vault", description: "Create vaults for investment plans to automate transactions" },
 		{ id: 4, title: "Track Transaction", description: "Monitor your investment automation transactions" },
 	];
-	const [step, setStep] = useState(0);
+	const tokenList = [
+		{ id: "", name: "Choose Token" },
+		{ id: "usdt", name: "USDT" },
+		{ id: "btc", name: "BTC" },
+		{ id: "eth", name: "ETH" },
+	];
+	const [step, setStep] = useState(1);
+	const [planMenu, setPlanMenu] = useState("CREATE");
+	const [planID, setPlanID] = useState("");
+	const [planName, setPlanName] = useState("");
+	const [planTokenFrom, setPlanTokenFrom] = useState("");
+	const [planTokenTo, setPlanTokenTo] = useState("");
+	const [planAmount, setPlanAmount] = useState(0);
+	const [planFrequency, setPlanFrequency] = useState("");
 	const { address, chain } = useAccount();
 	const { data: balance, isLoading } = useBalance({ address });
 	const chains = useChains();
 	const { switchChain } = useSwitchChain();
+
+	const submitPlan = async () => {
+		// TODO: submit plan function
+	};
 
 	return (
 		<div className="container">
@@ -70,7 +87,7 @@ function App() {
 					<div className="p-4 rounded-2xl bg-gray-300">
 						<h3 className="text-xl font-semibold">{stepList[step]?.title}</h3>
 						<p className="text-md italic">{stepList[step]?.description}</p>
-						{/* TODO: step by step process */}
+						{/* TODO: step by step process (done 1, 2) */}
 						{step === 0 && (
 							<div className="mt-4">
 								{address ? (
@@ -107,6 +124,136 @@ function App() {
 												<p className="mt-2 text-xs italic">*click the chain button to switch chain</p>
 											</div>
 										)}
+									</div>
+								) : (
+									<div className="mx-auto text-center">
+										<ConnectKitButton.Custom>
+											{({ show, isConnected, address }) => {
+												return (
+													<button className="btn-connect-wallet" onClick={show}>
+														{isConnected && address ? StringHelper.shortHex(address) : "Connect Wallet"}
+													</button>
+												);
+											}}
+										</ConnectKitButton.Custom>
+									</div>
+								)}
+							</div>
+						)}
+						{step === 1 && (
+							<div className="mt-4">
+								{address ? (
+									<div>
+										<div className="mb-2 flex items-center gap-x-2">
+											<button className={"btn-plan " + (planMenu === "CREATE" && "active")} onClick={() => setPlanMenu("CREATE")}>
+												Create New Plan
+											</button>
+											<button className={"btn-plan " + (planMenu === "MODIFY" && "active")} onClick={() => setPlanMenu("MODIFY")}>
+												Modify Existing Plan
+											</button>
+										</div>
+										<form onSubmit={submitPlan}>
+											{planMenu === "MODIFY" && (
+												<div className="mb-3 pb-4 border-b-2 border-dashed">
+													<label className="text-sm font-semibold">Select Existing Plan</label>
+													<select required className="w-full p-2 border-1 rounded-xl bg-white" value={planID} onChange={(e) => setPlanID(e.target.value)}>
+														<option value="">Choose choose</option>
+														<option value="ABC">Dummy Plan</option>
+													</select>
+												</div>
+											)}
+											{planMenu === "CREATE" || (planMenu === "MODIFY" && planID) ? (
+												<>
+													<div className="mb-2">
+														<label className="text-sm font-semibold">Plan Name</label>
+														<input
+															required
+															type="text"
+															className="w-full p-2 border-1 rounded-xl bg-white"
+															placeholder="Enter your plan name"
+															value={planName}
+															onChange={(e) => setPlanName(e.target.value)}
+														/>
+													</div>
+													<div className="mb-2 flex items-start gap-x-4">
+														<div className="w-full">
+															<label className="text-sm font-semibold">Select Source Token</label>
+															<select required className="w-full p-2 border-1 rounded-xl bg-white" onChange={(e) => setPlanTokenFrom(e.target.value)}>
+																{tokenList.map((token, index) => {
+																	return (
+																		<option key={index} value={token.id} selected={planTokenFrom === token.id}>
+																			{token.name}
+																		</option>
+																	);
+																})}
+																<option value="other" selected={!tokenList.map((item) => item.id).includes(planTokenFrom)}>
+																	Other token
+																</option>
+															</select>
+															{!tokenList.map((item) => item.id).includes(planTokenFrom) && (
+																<input type="text" className="mt-1 w-full p-2 border-1 rounded-xl bg-white" placeholder="Enter source token contract address" />
+															)}
+														</div>
+														<div className="w-full">
+															<div className="w-full">
+																<label className="text-sm font-semibold">Select Destination Token</label>
+																<select required className="w-full p-2 border-1 rounded-xl bg-white" onChange={(e) => setPlanTokenTo(e.target.value)}>
+																	{tokenList.map((token, index) => {
+																		return (
+																			<option key={index} value={token.id} selected={planTokenTo === token.id}>
+																				{token.name}
+																			</option>
+																		);
+																	})}
+																	<option value="other" selected={!tokenList.map((item) => item.id).includes(planTokenTo)}>
+																		Other token
+																	</option>
+																</select>
+																{!tokenList.map((item) => item.id).includes(planTokenTo) && (
+																	<input
+																		type="text"
+																		className="mt-1 w-full p-2 border-1 rounded-xl bg-white"
+																		placeholder="Enter destination token contract address"
+																	/>
+																)}
+															</div>
+														</div>
+													</div>
+													<div className="mb-2 flex items-center gap-x-4">
+														<div className="w-full">
+															<label className="text-sm font-semibold">Amount</label>
+															<input
+																required
+																type="number"
+																className="w-full p-2 border-1 rounded-xl bg-white"
+																placeholder="0.00"
+																value={planAmount}
+																onChange={(e) => setPlanAmount(Number(e.target.value))}
+															/>
+														</div>
+														<div className="w-72">
+															<label className="text-sm font-semibold">Frequency</label>
+															<select
+																required
+																className="w-full p-2 border-1 rounded-xl bg-white"
+																value={planFrequency}
+																onChange={(e) => setPlanFrequency(e.target.value)}
+															>
+																<option value="">Choose frequency</option>
+																<option value="daily">Daily</option>
+																<option value="weekly">Weekly</option>
+																<option value="monthly">Monthly</option>
+															</select>
+														</div>
+													</div>
+													<button type="submit" className="mt-4 w-full p-2 rounded-xl bg-blue-500 text-white">
+														{planMenu === "CREATE" ? "Create Recurring Investment Plan" : "Modify Recurring Investment Plan"}
+													</button>
+												</>
+											) : (
+												<></>
+											)}
+										</form>
 									</div>
 								) : (
 									<div className="mx-auto text-center">

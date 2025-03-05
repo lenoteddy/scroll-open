@@ -36,3 +36,17 @@
 	text-align: center;
 	color: #000000;
 }
+.btn-plan {
+	padding: 0.5rem 1.25rem;
+	border-radius: 1rem;
+	background-color: #f4f4f4;
+	font-size: 0.9rem;
+	text-align: center;
+	color: #000000;
+	cursor: pointer;
+}
+.btn-plan.active {
+	background-color: #121827;
+	font-weight: 600;
+	color: #ffffff;
+}
