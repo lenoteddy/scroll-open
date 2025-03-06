@@ -37,7 +37,8 @@
 	color: #000000;
 }
 .btn-plan,
-.btn-vault {
+.btn-vault,
+.btn-track {
 	padding: 0.5rem 1.25rem;
 	border-radius: 1rem;
 	background-color: #f4f4f4;
@@ -47,7 +48,8 @@
 	cursor: pointer;
 }
 .btn-plan.active,
-.btn-vault.active {
+.btn-vault.active,
+.btn-track.active {
 	background-color: #121827;
 	font-weight: 600;
 	color: #ffffff;
@@ -59,4 +61,31 @@
 	text-align: center;
 	font-weight: 500;
 	color: #ffffff;
+}
+.table-track {
+	width: 100%;
+	max-width: calc(100vw - 4rem);
+	overflow-x: scroll;
+	scrollbar-width: auto;
+	font-size: 0.875rem;
+}
+.table-track::-webkit-scrollbar {
+	height: 8px;
+	background: #e5e7eb;
+}
+.table-track::-webkit-scrollbar-thumb {
+	background: #9ca3af;
+	border-radius: 4px;
+}
+.table-track .col-no {
+	width: 2rem;
+}
+.table-track .col-time {
+	width: 12rem;
+}
+.table-track .col-info {
+	width: 12rem;
+}
+.table-track .col-hash {
+	width: auto;
 }

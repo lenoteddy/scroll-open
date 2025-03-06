@@ -24,7 +24,7 @@ function App() {
 		{ id: "eth", name: "ETH" },
 		{ id: "gho", name: "GHO" },
 	];
-	const [step, setStep] = useState(2);
+	const [step, setStep] = useState(3);
 	const [planMenu, setPlanMenu] = useState("CREATE");
 	const [planID, setPlanID] = useState("");
 	const [planName, setPlanName] = useState("");
@@ -34,6 +34,7 @@ function App() {
 	const [planFrequency, setPlanFrequency] = useState("");
 	const [vaultPlan, setVaultPlan] = useState("");
 	const [vaultWithdrawToken, setVaultWithdrawToken] = useState("");
+	const [trackVaultPlan, setTrackVaultPlan] = useState("");
 	const { address, chain } = useAccount();
 	const { data: balance, isLoading } = useBalance({ address });
 	const chains = useChains();
@@ -354,6 +355,61 @@ function App() {
 													<button className="mt-4 w-full btn-action-vault">Withdraw Vault</button>
 												</form>
 											</>
+										)}
+									</div>
+								) : (
+									<div className="mx-auto text-center">
+										<ConnectKitButton.Custom>
+											{({ show, isConnected, address }) => {
+												return (
+													<button className="btn-connect-wallet" onClick={show}>
+														{isConnected && address ? StringHelper.shortHex(address) : "Connect Wallet"}
+													</button>
+												);
+											}}
+										</ConnectKitButton.Custom>
+									</div>
+								)}
+							</div>
+						)}
+						{step === 3 && (
+							<div className="mt-4">
+								{address ? (
+									<div>
+										<div className="flex items-center gap-x-4 mb-4 pb-4 border-b-2 border-dashed">
+											<button className={"btn-track " + (trackVaultPlan === "EMPTY" && "active")} onClick={() => setTrackVaultPlan("EMPTY")}>
+												Dummy Plan
+											</button>
+										</div>
+										{trackVaultPlan !== "" && (
+											<div className="table-track scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-">
+												<div className="inline-block min-w-[800px]">
+													<div className="flex gap-2 bg-gray-800 p-2 text-white font-bold rounded-t-lg">
+														<div className="col-no text-center">No</div>
+														<div className="col-time text-center">Time</div>
+														<div className="col-info text-center">Info</div>
+														<div className="col-hash text-center">Hash</div>
+													</div>
+													<div className="bg-white divide-y divide-gray-300">
+														{/* TODO: iterate mapping data */}
+														<div className="flex gap-2 p-2 hover:bg-gray-100">
+															<div className="col-no text-center">1</div>
+															<div className="col-time text-center">Thursday, March 1, 2025 00:00:00PM (UTC+0)</div>
+															<div className="col-info">0.001 ETH to 57.41 GHO</div>
+															<div className="col-hash">
+																<a
+																	href="https://sepolia.scrollscan.com/tx/0x8c003927955e7f9c9975bfa2c81de7d144690ec0c658cb26649072cd50be7dd4"
+																	className="underline italic"
+																	target="_blank"
+																	rel="noreferrer noopener"
+																>
+																	0x8c003927955e7f9c9975bfa2c81de7d144690ec0c658cb26649072cd50be7dd4
+																</a>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
 										)}
 									</div>
 								) : (
