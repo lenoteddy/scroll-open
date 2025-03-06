@@ -16,11 +16,15 @@ function App() {
 	];
 	const tokenList = [
 		{ id: "", name: "Choose Token" },
-		{ id: "usdt", name: "USDT" },
-		{ id: "btc", name: "BTC" },
 		{ id: "eth", name: "ETH" },
+		{ id: "gho", name: "GHO" },
 	];
-	const [step, setStep] = useState(1);
+	const tokenVaultList = [
+		{ id: "", name: "Choose Token" },
+		{ id: "eth", name: "ETH" },
+		{ id: "gho", name: "GHO" },
+	];
+	const [step, setStep] = useState(2);
 	const [planMenu, setPlanMenu] = useState("CREATE");
 	const [planID, setPlanID] = useState("");
 	const [planName, setPlanName] = useState("");
@@ -28,6 +32,8 @@ function App() {
 	const [planTokenTo, setPlanTokenTo] = useState("");
 	const [planAmount, setPlanAmount] = useState(0);
 	const [planFrequency, setPlanFrequency] = useState("");
+	const [vaultPlan, setVaultPlan] = useState("");
+	const [vaultWithdrawToken, setVaultWithdrawToken] = useState("");
 	const { address, chain } = useAccount();
 	const { data: balance, isLoading } = useBalance({ address });
 	const chains = useChains();
@@ -254,6 +260,101 @@ function App() {
 												<></>
 											)}
 										</form>
+									</div>
+								) : (
+									<div className="mx-auto text-center">
+										<ConnectKitButton.Custom>
+											{({ show, isConnected, address }) => {
+												return (
+													<button className="btn-connect-wallet" onClick={show}>
+														{isConnected && address ? StringHelper.shortHex(address) : "Connect Wallet"}
+													</button>
+												);
+											}}
+										</ConnectKitButton.Custom>
+									</div>
+								)}
+							</div>
+						)}
+						{step === 2 && (
+							<div className="mt-4">
+								{address ? (
+									<div>
+										<div className="flex items-center gap-x-4 mb-4 pb-4 border-b-2 border-dashed">
+											<button className={"btn-vault " + (vaultPlan === "EMPTY" && "active")} onClick={() => setVaultPlan("EMPTY")}>
+												Not Create Vault - Dummy Plan
+											</button>
+											<button className={"btn-vault " + (vaultPlan === "CREATED" && "active")} onClick={() => setVaultPlan("CREATED")}>
+												Created Vault - Dummy Plan
+											</button>
+										</div>
+										{vaultPlan === "EMPTY" && (
+											<div className="mx-auto text-center">
+												<button className="btn-action-vault">Create a Vault</button>
+											</div>
+										)}
+										{vaultPlan === "CREATED" && (
+											<>
+												<div className="mb-4 pb-4 border-b-2 border-dashed">
+													<div className="mb-6">
+														<div className="mb-2">
+															<div className="font-bold">Automation address:</div>
+															<div className="text-sm italic">...</div>
+															<p className="text-sm italic">*please fill this address with ether to run the transaction</p>
+														</div>
+														<div className="mb-2">
+															<div className="font-bold">Automation ETH balance:</div>
+															<div className="text-sm italic">...</div>
+														</div>
+														<button className="w-full btn-action-vault">Withdraw ETH from Automation</button>
+													</div>
+													<div className="mb-2">
+														<div className="font-bold">Vault address:</div>
+														<div className="text-sm italic">...</div>
+													</div>
+													<div className="mb-2">
+														<div className="font-bold">Vault ETH balance:</div>
+														<div className="text-sm italic">...</div>
+													</div>
+													<div className="mb-2">
+														<div className="font-bold">Vault GHO balance:</div>
+														<div className="text-sm italic">...</div>
+													</div>
+												</div>
+												<form>
+													<div className="mb-2">
+														<label className="text-sm font-semibold">Select Token</label>
+														<select required className="w-full p-2 border-1 rounded-xl bg-white" onChange={(e) => setVaultWithdrawToken(e.target.value)}>
+															{tokenVaultList.map((token, index) => {
+																return (
+																	<option key={index} value={token.id} selected={vaultWithdrawToken === token.id}>
+																		{token.name}
+																	</option>
+																);
+															})}
+															<option value="other" selected={!tokenVaultList.map((item) => item.id).includes(vaultWithdrawToken)}>
+																Other token
+															</option>
+														</select>
+														{!tokenVaultList.map((item) => item.id).includes(vaultWithdrawToken) && (
+															<input type="text" className="mt-1 w-full p-2 border-1 rounded-xl bg-white" placeholder="Enter source token contract address" />
+														)}
+													</div>
+													<div className="mb-2">
+														<label className="text-sm font-semibold">Amount</label>
+														<input
+															required
+															type="number"
+															className="w-full p-2 border-1 rounded-xl bg-white"
+															placeholder="0.00"
+															value={planAmount}
+															onChange={(e) => setPlanAmount(Number(e.target.value))}
+														/>
+													</div>
+													<button className="mt-4 w-full btn-action-vault">Withdraw Vault</button>
+												</form>
+											</>
+										)}
 									</div>
 								) : (
 									<div className="mx-auto text-center">

@@ -36,7 +36,8 @@
 	text-align: center;
 	color: #000000;
 }
-.btn-plan {
+.btn-plan,
+.btn-vault {
 	padding: 0.5rem 1.25rem;
 	border-radius: 1rem;
 	background-color: #f4f4f4;
@@ -45,8 +46,17 @@
 	color: #000000;
 	cursor: pointer;
 }
-.btn-plan.active {
+.btn-plan.active,
+.btn-vault.active {
 	background-color: #121827;
 	font-weight: 600;
+	color: #ffffff;
+}
+.btn-action-vault {
+	padding: 0.5rem 1.5rem;
+	border-radius: 1rem;
+	background-color: #384151;
+	text-align: center;
+	font-weight: 500;
 	color: #ffffff;
 }
