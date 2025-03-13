@@ -22,7 +22,7 @@ app.listen(port, () => {
 	console.log(`Example app listening on port ${port}`);
 });
 
-app.get("/plans", async (req, res) => {
+app.get("/plans", async (_, res) => {
 	// TODO: do header auth check & use header user address for data queries
 
 	try {
@@ -76,6 +76,42 @@ app.post("/plans", async (req, res) => {
 		connection.release();
 		console.log("User Operator inserted!:", resultOperator);
 		console.log("User Plan inserted!:", resultPlan);
+		res.json({ message: "Query successfully executed!" });
+	} catch (err) {
+		console.error("Insert error:", err);
+		res.status(500).send("Internal server error!");
+	}
+});
+
+app.get("/transactions/:planId", async (req, res) => {
+	// TODO: do header auth check & use header user address for data queries
+
+	// user inputs
+	const planId = req.params.planId;
+	try {
+		// database transaction
+		const connection = await pool.getConnection();
+		const [result] = await connection.execute("SELECT * FROM user_plan_tx WHERE user_plan_id=?", [planId]);
+		connection.release();
+		console.log("User Plan Tx fetched!:", result);
+		res.json(result);
+	} catch (err) {
+		console.error("Insert error:", err);
+		res.status(500).send("Internal server error!");
+	}
+});
+
+app.get("/transactions", async (req, res) => {
+	// TODO: do header auth check only IP from operator machine can call it
+
+	// user inputs
+	const { planId, txEpoch, txInfo, txHash } = req.body;
+	try {
+		// database transaction
+		const connection = await pool.getConnection();
+		const [result] = await connection.execute("INSERT INTO user_plan_tx SET user_plan_id=?, user_plan_tx_epoch=?, user_plan_tx_info=?, user_plan_tx_hash=?", [planId, txEpoch, txInfo, txHash]);
+		connection.release();
+		console.log("User Plan Tx inserted!:", result);
 		res.json({ message: "Query successfully executed!" });
 	} catch (err) {
 		console.error("Insert error:", err);
