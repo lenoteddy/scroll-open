@@ -22,6 +22,26 @@ app.listen(port, () => {
 	console.log(`Example app listening on port ${port}`);
 });
 
+// TODO: get auth token process (user request token upon connect wallet)
+app.get("/auth/token", async (_, res) => {
+	try {
+		//
+	} catch (err) {
+		console.error("Auth token error:", err);
+		res.status(500).send("Internal server error!");
+	}
+});
+
+// TODO: post auth verify process (user submit signature with token and server verify)
+app.post("/auth/verify", async (_, res) => {
+	try {
+		//
+	} catch (err) {
+		console.error("Auth verify error:", err);
+		res.status(500).send("Internal server error!");
+	}
+});
+
 app.get("/plans", async (_, res) => {
 	// TODO: do header auth check & use header user address for data queries
 
