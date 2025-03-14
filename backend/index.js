@@ -2,8 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const app = express();
 const mysql = require("mysql2/promise");
-const { Wallet } = require("ethers");
+const { Wallet, ethers } = require("ethers");
 const { encrypt } = require("./libraries/encryption");
+const { getCurrentUTCDateTime, generateRandomString } = require("./libraries/string");
 
 const { DB_HOST, DB_NAME, DB_USER, DB_PASS } = process.env;
 const port = 3000;
@@ -22,20 +23,61 @@ app.listen(port, () => {
 	console.log(`Example app listening on port ${port}`);
 });
 
-// TODO: get auth token process (user request token upon connect wallet)
-app.get("/auth/token", async (_, res) => {
+app.get("/auth/token/:address", async (req, res) => {
+	// user inputs
+	const userAddress = req.params.address;
+	const authToken = generateRandomString();
+	const currentDatetime = getCurrentUTCDateTime();
 	try {
-		//
+		// database transaction
+		const connection = await pool.getConnection();
+		const [result] = await connection.execute("INSERT INTO user_auth SET user_auth_address=?, user_auth_token=?, user_auth_created_at=?", [userAddress, authToken, currentDatetime]);
+		connection.release();
+		console.log("User Auth inserted!:", result);
+		res.json({ token: authToken });
 	} catch (err) {
 		console.error("Auth token error:", err);
 		res.status(500).send("Internal server error!");
 	}
 });
 
-// TODO: post auth verify process (user submit signature with token and server verify)
 app.post("/auth/verify", async (_, res) => {
+	// user inputs
+	const { address, message, signature } = req.body;
 	try {
-		//
+		// verify signature
+		const recoveredAddress = ethers.verifyMessage(message, signature);
+		const isValid = address.toLowerCase() === recoveredAddress.toLowerCase();
+		console.log("Signature is valid:", isValid);
+		if (isValid) {
+			// check data in database
+			const connection = await pool.getConnection();
+			const [resultSelect] = await connection.execute("SELECT * FROM user_auth WHERE user_auth_address=? AND user_auth_token=? AND user_auth_signature='' ORDER BY user_auth_id DESC LIMIT 1", [
+				address,
+				message,
+			]);
+			if (resultSelect[0]) {
+				// update database
+				const verifyAt = getCurrentUTCDateTime();
+				const date = new Date(verifyAt + "Z");
+				date.setHours(date.getHours() + 1);
+				const expireAt = date.toISOString().replace("T", " ").substring(0, 19);
+				const { user_auth_id } = resultSelect[0];
+				const [resultUpdate] = await connection.execute("UPDATE user_auth SET user_auth_signature=?, user_auth_expire_at=?, user_auth_verify_at=? WHERE user_auth_id=?", [
+					signature,
+					expireAt,
+					verifyAt,
+					user_auth_id,
+				]);
+				console.log("User Auth updated!:", resultUpdate);
+			} else {
+				connection.release();
+				res.json({ isValid: false });
+				return;
+			}
+			connection.release();
+		}
+		res.json({ isValid: isValid });
 	} catch (err) {
 		console.error("Auth verify error:", err);
 		res.status(500).send("Internal server error!");
@@ -118,7 +160,6 @@ app.put("/plans/:id", async (req, res) => {
 			[address, name, source_token, destination_token, amount, frequency, planId]
 		);
 		connection.release();
-		console.log("User Operator updated!:", resultOperator);
 		console.log("User Plan updated!:", resultPlan);
 		res.json({ message: "Query successfully executed!" });
 	} catch (err) {
