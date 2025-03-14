@@ -19,6 +19,32 @@ const pool = mysql.createPool({
 	connectTimeout: 10000,
 });
 
+// Middleware to verify token in headers
+const verifyHeader = async (req, res, next) => {
+	const token = req.headers["x-app-token"]; // Read token from headers
+	if (!token) return res.status(403).json({ error: "Forbidden: token missing" });
+	try {
+		// database transaction
+		const connection = await pool.getConnection();
+		const [result] = await connection.execute("SELECT * FROM user_auth WHERE user_auth_token=?", [token]);
+		const { user_auth_id, user_auth_signature, user_auth_expire_at } = result[0];
+		const now = getCurrentUTCDateTime();
+		const currentDatetime = new Date(now);
+		const expiryDatetime = new Date(user_auth_expire_at);
+		// check auth
+		if (!result[0] || !user_auth_signature || currentDatetime > expiryDatetime) {
+			connection.release();
+			return res.status(401).json({ error: "Unauthorized!" });
+		}
+		await connection.execute("UPDATE user_auth SET user_auth_expire_at=? WHERE user_auth_id=?", [now, user_auth_id]);
+		connection.release();
+		next();
+	} catch (err) {
+		console.error("Verify header failed!", err);
+		res.status(500).send("Internal server error!");
+	}
+};
+
 app.listen(port, () => {
 	console.log(`Example app listening on port ${port}`);
 });
@@ -84,9 +110,7 @@ app.post("/auth/verify", async (_, res) => {
 	}
 });
 
-app.get("/plans", async (_, res) => {
-	// TODO: do header auth check & use header user address for data queries
-
+app.get("/plans", verifyHeader, async (_, res) => {
 	try {
 		// database transaction
 		const connection = await pool.getConnection();
@@ -100,9 +124,7 @@ app.get("/plans", async (_, res) => {
 	}
 });
 
-app.get("/plans/:id", async (req, res) => {
-	// TODO: do header auth check & use header user address for data queries
-
+app.get("/plans/:id", verifyHeader, async (req, res) => {
 	// user inputs
 	const planId = req.params.id;
 	try {
@@ -118,9 +140,7 @@ app.get("/plans/:id", async (req, res) => {
 	}
 });
 
-app.post("/plans", async (req, res) => {
-	// TODO: do header auth check & use header user address for data queries
-
+app.post("/plans", verifyHeader, async (req, res) => {
 	// user inputs
 	const { address, name, source_token, destination_token, amount, frequency } = req.body;
 	try {
@@ -145,10 +165,7 @@ app.post("/plans", async (req, res) => {
 	}
 });
 
-// TODO: API endpoint for update plans
-app.put("/plans/:id", async (req, res) => {
-	// TODO: do header auth check & use header user address for data queries
-
+app.put("/plans/:id", verifyHeader, async (req, res) => {
 	// user inputs
 	const planId = req.params.id;
 	const { address, name, source_token, destination_token, amount, frequency } = req.body;
@@ -168,9 +185,7 @@ app.put("/plans/:id", async (req, res) => {
 	}
 });
 
-app.get("/transactions/:planId", async (req, res) => {
-	// TODO: do header auth check & use header user address for data queries
-
+app.get("/transactions/:planId", verifyHeader, async (req, res) => {
 	// user inputs
 	const planId = req.params.planId;
 	try {
@@ -187,7 +202,7 @@ app.get("/transactions/:planId", async (req, res) => {
 });
 
 app.get("/transactions", async (req, res) => {
-	// TODO: do header auth check only IP from operator machine can call it
+	// TODO: only IP from operator machine can call it
 
 	// user inputs
 	const { planId, txEpoch, txInfo, txHash } = req.body;
