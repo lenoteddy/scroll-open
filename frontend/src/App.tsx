@@ -227,7 +227,7 @@ function App() {
 							{stepList.map((item, index) => {
 								return (
 									<li key={index} className="relative mb-4 cursor-pointer" onClick={() => chooseStep(index)}>
-										<button className={`absolute cursor-pointer btn-step-by-step ${step >= index ? "active" : ""}`}>{step >= index ? "✓" : index + 1}</button>
+										<button className={`absolute btn-step-by-step ${step >= index ? "active" : ""}`}>{step >= index ? "✓" : index + 1}</button>
 										<div className="ml-14">
 											<h3 className="text-lg font-semibold">{item.title}</h3>
 											<p className="text-sm">{item.description}</p>
@@ -268,7 +268,7 @@ function App() {
 												<ul className="flex items-center gap-x-6">
 													{chains.map((chain) => (
 														<li key={chain.id}>
-															<button className="w-fit flex items-center gap-x-2 cursor-pointer btn-network" onClick={() => switchChain({ chainId: chain.id })}>
+															<button className="w-fit flex items-center gap-x-2 btn-network" onClick={() => switchChain({ chainId: chain.id })}>
 																<ChainIcon id={chain.id} />
 																<span className="font-semibold">{chain.name}</span>
 															</button>
@@ -416,7 +416,7 @@ function App() {
 															</select>
 														</div>
 													</div>
-													<button type="submit" className="mt-4 w-full p-2 rounded-xl bg-blue-500 text-white cursor-pointer">
+													<button type="submit" className="mt-4 w-full p-2 rounded-xl bg-blue-500 text-white">
 														{planMenu === "CREATE" ? "Create Recurring Investment Plan" : "Modify Recurring Investment Plan"}
 													</button>
 												</>

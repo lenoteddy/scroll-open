@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+button {
+	cursor: pointer;
+}
+
 .container {
 	width: 100%;
 	max-width: 1024px;
@@ -13,7 +17,6 @@
 	font-size: 1.1rem;
 	font-weight: 500;
 	color: #ffffff;
-	cursor: pointer;
 }
 .btn-step-by-step {
 	width: 3rem;
