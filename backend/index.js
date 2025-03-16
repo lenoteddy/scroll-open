@@ -20,6 +20,8 @@ const pool = mysql.createPool({
 	connectTimeout: 10000,
 });
 
+// TODO: only allow user to get data that belong to that user only
+
 // Middleware to verify token in headers
 const verifyHeader = async (req, res, next) => {
 	const token = req.headers["x-app-token"]; // Read token from headers
