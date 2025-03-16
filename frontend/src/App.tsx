@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChains, ChainIcon, ConnectKitButton } from "connectkit";
-import { useAccount, useBalance, useSwitchChain } from "wagmi";
+import { useAccount, useBalance, useSwitchChain, useSignMessage } from "wagmi";
+import { formatEther } from "viem";
 import StringHelper from "./helpers/StringHelper";
 import Logo from "./assets/logo.png";
 import IconTelegram from "./assets/i-telegram.svg";
 import IconX from "./assets/i-x.svg";
-import { formatEther } from "viem";
+import APIHelper from "./helpers/APIHelper";
+
+type PlanOption = {
+	user_plan_id: string;
+	user_plan_name: string;
+	user_plan_source_token: string;
+	user_plan_destination_token: string;
+	user_plan_amount: string;
+	user_plan_frequency: string;
+};
 
 function App() {
 	const stepList = [
@@ -16,33 +26,163 @@ function App() {
 	];
 	const tokenList = [
 		{ id: "", name: "Choose Token" },
-		{ id: "eth", name: "ETH" },
-		{ id: "gho", name: "GHO" },
+		{ id: "0x0000000000000000000000000000000000000000", name: "ETH" },
+		{ id: "0xd9692f1748afee00face2da35242417dd05a8615", name: "GHO" },
 	];
 	const tokenVaultList = [
 		{ id: "", name: "Choose Token" },
-		{ id: "eth", name: "ETH" },
-		{ id: "gho", name: "GHO" },
+		{ id: "0x0000000000000000000000000000000000000000", name: "ETH" },
+		{ id: "0xd9692f1748afee00face2da35242417dd05a8615", name: "GHO" },
 	];
-	const [step, setStep] = useState(3);
+	const [step, setStep] = useState(0);
 	const [planMenu, setPlanMenu] = useState("CREATE");
+	const [plans, setPlans] = useState<PlanOption[]>([]);
 	const [planID, setPlanID] = useState("");
 	const [planName, setPlanName] = useState("");
 	const [planTokenFrom, setPlanTokenFrom] = useState("");
 	const [planTokenTo, setPlanTokenTo] = useState("");
 	const [planAmount, setPlanAmount] = useState(0);
-	const [planFrequency, setPlanFrequency] = useState("");
-	const [vaultPlan, setVaultPlan] = useState("");
+	const [planFrequency, setPlanFrequency] = useState(0);
+	const [vaultPlan, setVaultPlan] = useState(-1);
 	const [vaultWithdrawToken, setVaultWithdrawToken] = useState("");
-	const [trackVaultPlan, setTrackVaultPlan] = useState("");
-	const { address, chain } = useAccount();
+	const [trackVaultPlan, setTrackVaultPlan] = useState(-1);
+	const [hasSigned, setHasSigned] = useState(false);
+	const { address, isConnected, chain } = useAccount();
 	const { data: balance, isLoading } = useBalance({ address });
 	const chains = useChains();
 	const { switchChain } = useSwitchChain();
+	const { signMessage, data: signature, isSuccess } = useSignMessage();
 
-	const submitPlan = async () => {
-		// TODO: submit plan function
+	const chooseStep = async (index: number) => {
+		setStep(index);
+		if ([1, 2, 3].includes(index)) {
+			try {
+				const savedToken = sessionStorage.getItem("TOKEN");
+				APIHelper.setAuthToken(savedToken);
+				const data = await APIHelper.getPlans();
+				setPlans(data);
+			} catch {
+				sessionStorage.setItem("TOKEN", "");
+				window.location.reload();
+			}
+		}
 	};
+	const choosePlanMenu = (menu: string) => {
+		setPlanMenu(menu);
+		// reset input
+		setPlanID("");
+		setPlanName("");
+		setPlanTokenFrom("");
+		setPlanTokenTo("");
+		setPlanAmount(0);
+		setPlanFrequency(0);
+	};
+	const choosePlan = async (id: string) => {
+		setPlanID(id);
+		const { user_plan_name, user_plan_source_token, user_plan_destination_token, user_plan_amount, user_plan_frequency } = plans[Number(id)];
+		setPlanName(user_plan_name);
+		setPlanTokenFrom(user_plan_source_token);
+		setPlanTokenTo(user_plan_destination_token);
+		setPlanAmount(Number(user_plan_amount));
+		setPlanFrequency(Number(user_plan_frequency));
+	};
+	const submitPlan = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		const planData = {
+			address: String(address),
+			name: planName,
+			source_token: planTokenFrom,
+			destination_token: planTokenTo,
+			amount: planAmount,
+			frequency: planFrequency,
+		};
+		// TODO: submit plan function
+		const savedToken = sessionStorage.getItem("TOKEN");
+		APIHelper.setAuthToken(savedToken);
+		if (planMenu === "CREATE") {
+			const { message, data } = await APIHelper.createPlan(planData);
+			setPlans((prevItems) => [
+				...prevItems,
+				{
+					user_plan_id: data.id,
+					user_plan_name: data.name,
+					user_plan_source_token: data.source_token,
+					user_plan_destination_token: data.destination_token,
+					user_plan_amount: data.amount,
+					user_plan_frequency: data.frequency,
+				},
+			]);
+			// reset input
+			setPlanName("");
+			setPlanTokenFrom("");
+			setPlanTokenTo("");
+			setPlanAmount(0);
+			setPlanFrequency(0);
+			alert(message);
+		} else if (planMenu === "MODIFY") {
+			const { message, data } = await APIHelper.updatePlan(plans[Number(planID)].user_plan_id, planData);
+			setPlans((prevItems) => {
+				return prevItems.map((item, i) =>
+					i === Number(planID)
+						? {
+								...item,
+								user_plan_name: data.name,
+								user_plan_source_token: data.source_token,
+								user_plan_destination_token: data.destination_token,
+								user_plan_amount: data.amount,
+								user_plan_frequency: data.frequency,
+						  }
+						: item
+				);
+			});
+			// reset input
+			setPlanName(data.name);
+			setPlanTokenFrom(data.source_token);
+			setPlanTokenTo(data.destination_token);
+			setPlanAmount(data.amount);
+			setPlanFrequency(data.frequency);
+			alert(message);
+		} else {
+			alert("Invalid request! Please try again later!");
+		}
+	};
+
+	useEffect(() => {
+		console.log(plans);
+	}, [plans]);
+
+	useEffect(() => {
+		if (isConnected && address && !hasSigned) {
+			(async () => {
+				try {
+					const savedToken = sessionStorage.getItem("TOKEN");
+					if (!savedToken) {
+						const message = await APIHelper.getAuthToken(address);
+						sessionStorage.setItem("TOKEN", message);
+						signMessage({ message });
+					}
+				} catch (err) {
+					sessionStorage.setItem("TOKEN", "");
+					alert(JSON.stringify(err));
+				}
+			})();
+		}
+	}, [isConnected, address, hasSigned, signMessage]);
+
+	useEffect(() => {
+		if (isSuccess) {
+			(async () => {
+				try {
+					console.log("User Signature:", signature);
+					const message = sessionStorage.getItem("TOKEN");
+					await APIHelper.verifyAuth(address, message, signature);
+					setHasSigned(true);
+				} catch (err) {
+					alert(JSON.stringify(err));
+				}
+			})();
+		}
+	}, [address, signature, isSuccess]);
 
 	return (
 		<div className="container">
@@ -78,7 +218,7 @@ function App() {
 						<ul className="mt-4">
 							{stepList.map((item, index) => {
 								return (
-									<li key={index} className="relative mb-4 cursor-pointer" onClick={() => setStep(index)}>
+									<li key={index} className="relative mb-4 cursor-pointer" onClick={() => chooseStep(index)}>
 										<button className={`absolute cursor-pointer btn-step-by-step ${step >= index ? "active" : ""}`}>{step >= index ? "✓" : index + 1}</button>
 										<div className="ml-14">
 											<h3 className="text-lg font-semibold">{item.title}</h3>
@@ -94,7 +234,6 @@ function App() {
 					<div className="p-4 rounded-2xl bg-gray-300">
 						<h3 className="text-xl font-semibold">{stepList[step]?.title}</h3>
 						<p className="text-md italic">{stepList[step]?.description}</p>
-						{/* TODO: step by step process (done 1, 2) */}
 						{step === 0 && (
 							<div className="mt-4">
 								{address ? (
@@ -152,10 +291,10 @@ function App() {
 								{address ? (
 									<div>
 										<div className="mb-2 flex items-center gap-x-2">
-											<button className={"btn-plan " + (planMenu === "CREATE" && "active")} onClick={() => setPlanMenu("CREATE")}>
+											<button className={"btn-plan " + (planMenu === "CREATE" && "active")} onClick={() => choosePlanMenu("CREATE")}>
 												Create New Plan
 											</button>
-											<button className={"btn-plan " + (planMenu === "MODIFY" && "active")} onClick={() => setPlanMenu("MODIFY")}>
+											<button className={"btn-plan " + (planMenu === "MODIFY" && "active")} onClick={() => choosePlanMenu("MODIFY")}>
 												Modify Existing Plan
 											</button>
 										</div>
@@ -163,9 +302,15 @@ function App() {
 											{planMenu === "MODIFY" && (
 												<div className="mb-3 pb-4 border-b-2 border-dashed">
 													<label className="text-sm font-semibold">Select Existing Plan</label>
-													<select required className="w-full p-2 border-1 rounded-xl bg-white" value={planID} onChange={(e) => setPlanID(e.target.value)}>
-														<option value="">Choose choose</option>
-														<option value="ABC">Dummy Plan</option>
+													<select required className="w-full p-2 border-1 rounded-xl bg-white" value={planID} onChange={(e) => choosePlan(e.target.value)}>
+														<option value="">Choose existing plan</option>
+														{plans.map((val, key) => {
+															return (
+																<option key={key} value={key}>
+																	{val.user_plan_name}
+																</option>
+															);
+														})}
 													</select>
 												</div>
 											)}
@@ -198,7 +343,13 @@ function App() {
 																</option>
 															</select>
 															{!tokenList.map((item) => item.id).includes(planTokenFrom) && (
-																<input type="text" className="mt-1 w-full p-2 border-1 rounded-xl bg-white" placeholder="Enter source token contract address" />
+																<input
+																	type="text"
+																	className="mt-1 w-full p-2 border-1 rounded-xl bg-white"
+																	placeholder="Enter source token contract address"
+																	value={planTokenFrom}
+																	onChange={(e) => setPlanTokenFrom(e.target.value)}
+																/>
 															)}
 														</div>
 														<div className="w-full">
@@ -221,6 +372,8 @@ function App() {
 																		type="text"
 																		className="mt-1 w-full p-2 border-1 rounded-xl bg-white"
 																		placeholder="Enter destination token contract address"
+																		value={planTokenTo}
+																		onChange={(e) => setPlanTokenTo(e.target.value)}
 																	/>
 																)}
 															</div>
@@ -228,7 +381,7 @@ function App() {
 													</div>
 													<div className="mb-2 flex items-center gap-x-4">
 														<div className="w-full">
-															<label className="text-sm font-semibold">Amount</label>
+															<label className="text-sm font-semibold">Amount (in source token)</label>
 															<input
 																required
 																type="number"
@@ -244,16 +397,18 @@ function App() {
 																required
 																className="w-full p-2 border-1 rounded-xl bg-white"
 																value={planFrequency}
-																onChange={(e) => setPlanFrequency(e.target.value)}
+																onChange={(e) => setPlanFrequency(Number(e.target.value))}
 															>
 																<option value="">Choose frequency</option>
-																<option value="daily">Daily</option>
+																<option value="60">every minutes</option>
+																<option value="3600">every hour</option>
+																{/* <option value="daily">Daily</option>
 																<option value="weekly">Weekly</option>
-																<option value="monthly">Monthly</option>
+																<option value="monthly">Monthly</option> */}
 															</select>
 														</div>
 													</div>
-													<button type="submit" className="mt-4 w-full p-2 rounded-xl bg-blue-500 text-white">
+													<button type="submit" className="mt-4 w-full p-2 rounded-xl bg-blue-500 text-white cursor-pointer">
 														{planMenu === "CREATE" ? "Create Recurring Investment Plan" : "Modify Recurring Investment Plan"}
 													</button>
 												</>
@@ -282,19 +437,21 @@ function App() {
 								{address ? (
 									<div>
 										<div className="flex items-center gap-x-4 mb-4 pb-4 border-b-2 border-dashed">
-											<button className={"btn-vault " + (vaultPlan === "EMPTY" && "active")} onClick={() => setVaultPlan("EMPTY")}>
-												Not Create Vault - Dummy Plan
-											</button>
-											<button className={"btn-vault " + (vaultPlan === "CREATED" && "active")} onClick={() => setVaultPlan("CREATED")}>
-												Created Vault - Dummy Plan
-											</button>
+											{plans.map((val, key) => {
+												return (
+													<button key={key} className={"btn-vault " + (vaultPlan === key && "active")} onClick={() => setVaultPlan(key)}>
+														{val.user_plan_name}
+													</button>
+												);
+											})}
 										</div>
-										{vaultPlan === "EMPTY" && (
+										{/* TODO: check vault has been created or not */}
+										{vaultPlan === 0 && (
 											<div className="mx-auto text-center">
 												<button className="btn-action-vault">Create a Vault</button>
 											</div>
 										)}
-										{vaultPlan === "CREATED" && (
+										{vaultPlan === 1 && (
 											<>
 												<div className="mb-4 pb-4 border-b-2 border-dashed">
 													<div className="mb-6">
@@ -377,11 +534,15 @@ function App() {
 								{address ? (
 									<div>
 										<div className="flex items-center gap-x-4 mb-4 pb-4 border-b-2 border-dashed">
-											<button className={"btn-track " + (trackVaultPlan === "EMPTY" && "active")} onClick={() => setTrackVaultPlan("EMPTY")}>
-												Dummy Plan
-											</button>
+											{plans.map((val, key) => {
+												return (
+													<button key={key} className={"btn-track " + (trackVaultPlan === key && "active")} onClick={() => setTrackVaultPlan(key)}>
+														{val.user_plan_name}
+													</button>
+												);
+											})}
 										</div>
-										{trackVaultPlan !== "" && (
+										{trackVaultPlan !== -1 && (
 											<div className="table-track scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-">
 												<div className="inline-block min-w-[800px]">
 													<div className="flex gap-2 bg-gray-800 p-2 text-white font-bold rounded-t-lg">
