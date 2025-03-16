@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const cors = require("cors");
 const app = express();
 const mysql = require("mysql2/promise");
 const { Wallet, ethers } = require("ethers");
@@ -22,7 +23,7 @@ const pool = mysql.createPool({
 // Middleware to verify token in headers
 const verifyHeader = async (req, res, next) => {
 	const token = req.headers["x-app-token"]; // Read token from headers
-	if (!token) return res.status(403).json({ error: "Forbidden: token missing" });
+	if (!token) return res.status(403).json({ status: "error", message: "Forbidden: token missing" });
 	try {
 		// database transaction
 		const connection = await pool.getConnection();
@@ -30,20 +31,30 @@ const verifyHeader = async (req, res, next) => {
 		const { user_auth_id, user_auth_signature, user_auth_expire_at } = result[0];
 		const now = getCurrentUTCDateTime();
 		const currentDatetime = new Date(now);
-		const expiryDatetime = new Date(user_auth_expire_at);
+		const expiryDatetime = new Date(user_auth_expire_at + "Z");
 		// check auth
 		if (!result[0] || !user_auth_signature || currentDatetime > expiryDatetime) {
 			connection.release();
-			return res.status(401).json({ error: "Unauthorized!" });
+			return res.status(401).json({ status: "error", message: "Unauthorized!" });
 		}
 		await connection.execute("UPDATE user_auth SET user_auth_expire_at=? WHERE user_auth_id=?", [now, user_auth_id]);
 		connection.release();
 		next();
 	} catch (err) {
 		console.error("Verify header failed!", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 };
+
+app.use(
+	express.json(),
+	express.urlencoded({ extended: true }),
+	cors({
+		origin: "http://localhost:5173", // Replace with frontend URL
+		methods: "GET,POST,PUT,DELETE,OPTIONS",
+		allowedHeaders: "Content-Type,Authorization,x-app-token",
+	})
+);
 
 app.listen(port, () => {
 	console.log(`Example app listening on port ${port}`);
@@ -54,22 +65,33 @@ app.get("/auth/token/:address", async (req, res) => {
 	const userAddress = req.params.address;
 	const authToken = generateRandomString();
 	const currentDatetime = getCurrentUTCDateTime();
+	let token = "";
 	try {
 		// database transaction
 		const connection = await pool.getConnection();
-		const [result] = await connection.execute("INSERT INTO user_auth SET user_auth_address=?, user_auth_token=?, user_auth_created_at=?", [userAddress, authToken, currentDatetime]);
+		const [resultSelect] = await connection.execute("SELECT * FROM user_auth WHERE user_auth_address=? AND user_auth_signature='' ORDER BY user_auth_id DESC LIMIT 1", [userAddress]);
+		if (resultSelect[0]) {
+			const { user_auth_id, user_auth_token } = resultSelect[0];
+			const [resultUpdate] = await connection.execute("UPDATE user_auth SET user_auth_token=? WHERE user_auth_id=?", [user_auth_token, user_auth_id]);
+			console.log("User Auth updated!:", resultUpdate);
+			token = user_auth_token;
+		} else {
+			const [resultInsert] = await connection.execute("INSERT INTO user_auth SET user_auth_address=?, user_auth_token=?, user_auth_created_at=?", [userAddress, authToken, currentDatetime]);
+			console.log("User Auth inserted!:", resultInsert);
+			token = authToken;
+		}
 		connection.release();
-		console.log("User Auth inserted!:", result);
-		res.json({ token: authToken });
+		res.json({ token });
 	} catch (err) {
 		console.error("Auth token error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
 
-app.post("/auth/verify", async (_, res) => {
+app.post("/auth/verify", async (req, res) => {
 	// user inputs
 	const { address, message, signature } = req.body;
+	if (!address || !message || !signature) return res.status(400).json({ status: "error", message: "Missing required fields" });
 	try {
 		// verify signature
 		const recoveredAddress = ethers.verifyMessage(message, signature);
@@ -106,7 +128,7 @@ app.post("/auth/verify", async (_, res) => {
 		res.json({ isValid: isValid });
 	} catch (err) {
 		console.error("Auth verify error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
 
@@ -120,7 +142,7 @@ app.get("/plans", verifyHeader, async (_, res) => {
 		res.json(result);
 	} catch (err) {
 		console.error("Insert error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
 
@@ -136,7 +158,7 @@ app.get("/plans/:id", verifyHeader, async (req, res) => {
 		res.json(result);
 	} catch (err) {
 		console.error("Insert error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
 
@@ -158,10 +180,10 @@ app.post("/plans", verifyHeader, async (req, res) => {
 		connection.release();
 		console.log("User Operator inserted!:", resultOperator);
 		console.log("User Plan inserted!:", resultPlan);
-		res.json({ message: "Query successfully executed!" });
+		res.json({ message: "Plan created successfully!", data: { id: resultPlan.insertId, name, source_token, destination_token, amount, frequency } });
 	} catch (err) {
 		console.error("Insert error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
 
@@ -173,15 +195,15 @@ app.put("/plans/:id", verifyHeader, async (req, res) => {
 		// database transaction
 		const connection = await pool.getConnection();
 		const [resultPlan] = await connection.execute(
-			"UPDATE user_plan SET user_plan_name=?, user_plan_source_token=?, user_plan_destination_token=?, user_plan_amount=?, user_plan_frequency=? WHERE user_plan_id=?",
+			"UPDATE user_plan SET user_plan_address=?, user_plan_name=?, user_plan_source_token=?, user_plan_destination_token=?, user_plan_amount=?, user_plan_frequency=? WHERE user_plan_id=?",
 			[address, name, source_token, destination_token, amount, frequency, planId]
 		);
 		connection.release();
 		console.log("User Plan updated!:", resultPlan);
-		res.json({ message: "Query successfully executed!" });
+		res.json({ message: "Plan updated successfully!", data: { name, source_token, destination_token, amount, frequency } });
 	} catch (err) {
 		console.error("Insert error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
 
@@ -197,7 +219,7 @@ app.get("/transactions/:planId", verifyHeader, async (req, res) => {
 		res.json(result);
 	} catch (err) {
 		console.error("Insert error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
 
@@ -215,6 +237,6 @@ app.get("/transactions", async (req, res) => {
 		res.json({ message: "Query successfully executed!" });
 	} catch (err) {
 		console.error("Insert error:", err);
-		res.status(500).send("Internal server error!");
+		res.status(500).json({ status: "error", message: "Internal server error!" });
 	}
 });
