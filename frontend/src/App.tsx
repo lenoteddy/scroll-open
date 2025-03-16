@@ -17,6 +17,14 @@ type PlanOption = {
 	user_plan_frequency: string;
 };
 
+type Transaction = {
+	user_plan_tx_id: string;
+	user_plan_id: string;
+	user_plan_tx_epoch: string;
+	user_plan_tx_info: string;
+	user_plan_tx_hash: string;
+};
+
 function App() {
 	const stepList = [
 		{ id: 1, title: "Connect Wallet", description: "Please connect wallet to proceed with other action" },
@@ -37,6 +45,7 @@ function App() {
 	const [step, setStep] = useState(0);
 	const [planMenu, setPlanMenu] = useState("CREATE");
 	const [plans, setPlans] = useState<PlanOption[]>([]);
+	const [transactions, setTransactions] = useState<Transaction[]>([]);
 	const [planID, setPlanID] = useState("");
 	const [planName, setPlanName] = useState("");
 	const [planTokenFrom, setPlanTokenFrom] = useState("");
@@ -96,7 +105,6 @@ function App() {
 			amount: planAmount,
 			frequency: planFrequency,
 		};
-		// TODO: submit plan function
 		const savedToken = sessionStorage.getItem("TOKEN");
 		APIHelper.setAuthToken(savedToken);
 		if (planMenu === "CREATE") {
@@ -146,10 +154,11 @@ function App() {
 			alert("Invalid request! Please try again later!");
 		}
 	};
-
-	useEffect(() => {
-		console.log(plans);
-	}, [plans]);
+	const chooseTrackPlan = async (id: number) => {
+		setTrackVaultPlan(id);
+		const data = await APIHelper.getTransactionsByPlanId(plans[id].user_plan_id);
+		setTransactions(data);
+	};
 
 	useEffect(() => {
 		if (isConnected && address && !hasSigned) {
@@ -173,7 +182,6 @@ function App() {
 		if (isSuccess) {
 			(async () => {
 				try {
-					console.log("User Signature:", signature);
 					const message = sessionStorage.getItem("TOKEN");
 					await APIHelper.verifyAuth(address, message, signature);
 					setHasSigned(true);
@@ -536,7 +544,7 @@ function App() {
 										<div className="flex items-center gap-x-4 mb-4 pb-4 border-b-2 border-dashed">
 											{plans.map((val, key) => {
 												return (
-													<button key={key} className={"btn-track " + (trackVaultPlan === key && "active")} onClick={() => setTrackVaultPlan(key)}>
+													<button key={key} className={"btn-track " + (trackVaultPlan === key && "active")} onClick={() => chooseTrackPlan(key)}>
 														{val.user_plan_name}
 													</button>
 												);
@@ -552,22 +560,26 @@ function App() {
 														<div className="col-hash text-center">Hash</div>
 													</div>
 													<div className="bg-white divide-y divide-gray-300">
-														{/* TODO: iterate mapping data */}
-														<div className="flex gap-2 p-2 hover:bg-gray-100">
-															<div className="col-no text-center">1</div>
-															<div className="col-time text-center">Thursday, March 1, 2025 00:00:00PM (UTC+0)</div>
-															<div className="col-info">0.001 ETH to 57.41 GHO</div>
-															<div className="col-hash">
-																<a
-																	href="https://sepolia.scrollscan.com/tx/0x8c003927955e7f9c9975bfa2c81de7d144690ec0c658cb26649072cd50be7dd4"
-																	className="underline italic"
-																	target="_blank"
-																	rel="noreferrer noopener"
-																>
-																	0x8c003927955e7f9c9975bfa2c81de7d144690ec0c658cb26649072cd50be7dd4
-																</a>
-															</div>
-														</div>
+														{transactions.map((val, key) => {
+															return (
+																<div key={key} className="flex gap-2 p-2 hover:bg-gray-100">
+																	<div className="col-no text-center">{key + 1}</div>
+
+																	<div className="col-time text-center">{StringHelper.formatUnixTimestamp(Number(val.user_plan_tx_epoch))}</div>
+																	<div className="col-info">{val.user_plan_tx_info}</div>
+																	<div className="col-hash">
+																		<a
+																			href={`https://sepolia.scrollscan.com/tx/${val.user_plan_tx_hash}`}
+																			className="underline italic"
+																			target="_blank"
+																			rel="noreferrer noopener"
+																		>
+																			{val.user_plan_tx_hash}
+																		</a>
+																	</div>
+																</div>
+															);
+														})}
 													</div>
 												</div>
 											</div>
