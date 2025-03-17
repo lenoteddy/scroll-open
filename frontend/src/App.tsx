@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useChains, ChainIcon, ConnectKitButton } from "connectkit";
-import { useAccount, useBalance, useSwitchChain, useSignMessage } from "wagmi";
-import { formatEther } from "viem";
+import { readContract, writeContract, waitForTransactionReceipt } from "@wagmi/core";
+import { useAccount, useBalance, useSwitchChain, useSignMessage, useConfig } from "wagmi";
+import { formatEther, parseEther } from "viem";
 import StringHelper from "./helpers/StringHelper";
 import Logo from "./assets/logo.png";
 import IconTelegram from "./assets/i-telegram.svg";
 import IconX from "./assets/i-x.svg";
 import APIHelper from "./helpers/APIHelper";
+import walletABI from "./helpers/abi/wallet.json";
+import factoryABI from "./helpers/abi/factory.json";
 
 type PlanOption = {
 	user_plan_id: string;
@@ -15,6 +18,9 @@ type PlanOption = {
 	user_plan_destination_token: string;
 	user_plan_amount: string;
 	user_plan_frequency: string;
+	user_plan_operator: string;
+	user_plan_vault: string;
+	vault?: string; // Added the 'vault' property
 };
 
 type Transaction = {
@@ -25,7 +31,15 @@ type Transaction = {
 	user_plan_tx_hash: string;
 };
 
+const WalletBalance = ({ address, token }: { address: `0x${string}`; token?: `0x${string}` }) => {
+	const { data: etherBalance } = useBalance({ address });
+	const { data: tokenBalance } = useBalance({ address, token });
+	return <>{token ? formatEther(BigInt(tokenBalance?.value || 0)) + " " + tokenBalance?.symbol : formatEther(BigInt(etherBalance?.value || 0)) + " " + etherBalance?.symbol}</>;
+};
+
 function App() {
+	const CONTRACT_ADDRESS = "0x47baaff1d42a19778a1714f9362818b70e277419";
+	const config = useConfig();
 	const stepList = [
 		{ id: 1, title: "Connect Wallet", description: "Please connect wallet to proceed with other action" },
 		{ id: 2, title: "Setup Plan", description: "Create or modify automate investment plans to execute" },
@@ -54,6 +68,7 @@ function App() {
 	const [planFrequency, setPlanFrequency] = useState(0);
 	const [vaultPlan, setVaultPlan] = useState(-1);
 	const [vaultWithdrawToken, setVaultWithdrawToken] = useState("");
+	const [vaultWithdrawAmount, setVaultWithdrawAmount] = useState(0);
 	const [trackVaultPlan, setTrackVaultPlan] = useState(-1);
 	const [hasSigned, setHasSigned] = useState(false);
 	const { address, isConnected, chain } = useAccount();
@@ -118,6 +133,8 @@ function App() {
 					user_plan_destination_token: data.destination_token,
 					user_plan_amount: data.amount,
 					user_plan_frequency: data.frequency,
+					user_plan_operator: data.operator,
+					user_plan_vault: data.vault,
 				},
 			]);
 			// reset input
@@ -152,6 +169,70 @@ function App() {
 			alert(message);
 		} else {
 			alert("Invalid request! Please try again later!");
+		}
+	};
+	const createVault = async () => {
+		try {
+			// Step 1: Write to the contract
+			const hash = await writeContract(config, {
+				abi: factoryABI,
+				address: CONTRACT_ADDRESS,
+				functionName: "createWallet",
+				args: [
+					address,
+					[plans[vaultPlan].user_plan_operator],
+					["0x0000000000000000000000000000000000000000", "0x5300000000000000000000000000000000000004", "0xd9692f1748afee00face2da35242417dd05a8615"], // ETH, WETH, GHO
+					["0x17AFD0263D6909Ba1F9a8EAC697f76532365Fb95"], // scroll testnet uniswap dex
+				],
+			});
+
+			// Step 2: Wait for the transaction to be confirmed
+			const receipt = await waitForTransactionReceipt(config, { hash });
+			if (receipt.status !== "success") throw new Error("Transaction failed");
+
+			// Step 3: Read the updated value from the contract
+			const vaultsData = await readContract(config, {
+				abi: factoryABI,
+				address: CONTRACT_ADDRESS,
+				functionName: "getUserWallets",
+				args: [address],
+			});
+			if (Array.isArray(vaultsData)) {
+				// update vault address
+				const savedToken = sessionStorage.getItem("TOKEN");
+				APIHelper.setAuthToken(savedToken);
+				const { data } = await APIHelper.updatePlan(plans[vaultPlan].user_plan_id, {
+					address: String(address),
+					vault: String(vaultsData[vaultsData.length - 1]),
+				});
+				setPlans((prevItems) => {
+					return prevItems.map((item, i) => (i === Number(vaultPlan) ? { ...item, user_plan_vault: data?.vault } : item));
+				});
+			}
+		} catch (error) {
+			console.error("Error in contract interaction:", error);
+		}
+	};
+	const submitWithdraw = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		try {
+			if (vaultWithdrawToken === "0x0000000000000000000000000000000000000000") {
+				await writeContract(config, {
+					abi: walletABI,
+					address: String(plans[vaultPlan].user_plan_vault) as `0x${string}`,
+					functionName: "withdrawEther",
+					args: [parseEther(String(vaultWithdrawAmount))],
+				});
+			} else {
+				await writeContract(config, {
+					abi: walletABI,
+					address: String(plans[vaultPlan].user_plan_vault) as `0x${string}`,
+					functionName: "withdrawToken",
+					args: [vaultWithdrawToken, parseEther(String(vaultWithdrawAmount))],
+				});
+			}
+		} catch (error) {
+			console.error("Error in contract interaction:", error);
 		}
 	};
 	const chooseTrackPlan = async (id: number) => {
@@ -310,7 +391,7 @@ function App() {
 											{planMenu === "MODIFY" && (
 												<div className="mb-3 pb-4 border-b-2 border-dashed">
 													<label className="text-sm font-semibold">Select Existing Plan</label>
-													<select required className="w-full p-2 border-1 rounded-xl bg-white" value={planID} onChange={(e) => choosePlan(e.target.value)}>
+													<select required className="w-full p-2 border-1 rounded-xl bg-white" defaultValue={planID} onChange={(e) => choosePlan(e.target.value)}>
 														<option value="">Choose existing plan</option>
 														{plans.map((val, key) => {
 															return (
@@ -346,11 +427,11 @@ function App() {
 																		</option>
 																	);
 																})}
-																<option value="other" selected={!tokenList.map((item) => item.id).includes(planTokenFrom)}>
+																{/* <option value="other" selected={!tokenList.map((item) => item.id).includes(planTokenFrom)}>
 																	Other token
-																</option>
+																</option> */}
 															</select>
-															{!tokenList.map((item) => item.id).includes(planTokenFrom) && (
+															{/* {!tokenList.map((item) => item.id).includes(planTokenFrom) && (
 																<input
 																	type="text"
 																	className="mt-1 w-full p-2 border-1 rounded-xl bg-white"
@@ -358,7 +439,7 @@ function App() {
 																	value={planTokenFrom}
 																	onChange={(e) => setPlanTokenFrom(e.target.value)}
 																/>
-															)}
+															)} */}
 														</div>
 														<div className="w-full">
 															<div className="w-full">
@@ -371,11 +452,11 @@ function App() {
 																			</option>
 																		);
 																	})}
-																	<option value="other" selected={!tokenList.map((item) => item.id).includes(planTokenTo)}>
+																	{/* <option value="other" selected={!tokenList.map((item) => item.id).includes(planTokenTo)}>
 																		Other token
-																	</option>
+																	</option> */}
 																</select>
-																{!tokenList.map((item) => item.id).includes(planTokenTo) && (
+																{/* {!tokenList.map((item) => item.id).includes(planTokenTo) && (
 																	<input
 																		type="text"
 																		className="mt-1 w-full p-2 border-1 rounded-xl bg-white"
@@ -383,7 +464,7 @@ function App() {
 																		value={planTokenTo}
 																		onChange={(e) => setPlanTokenTo(e.target.value)}
 																	/>
-																)}
+																)} */}
 															</div>
 														</div>
 													</div>
@@ -404,7 +485,7 @@ function App() {
 															<select
 																required
 																className="w-full p-2 border-1 rounded-xl bg-white"
-																value={planFrequency}
+																defaultValue={planFrequency}
 																onChange={(e) => setPlanFrequency(Number(e.target.value))}
 															>
 																<option value="">Choose frequency</option>
@@ -453,41 +534,48 @@ function App() {
 												);
 											})}
 										</div>
-										{/* TODO: check vault has been created or not */}
-										{vaultPlan === 0 && (
+										{vaultPlan !== -1 && ["0x0000000000000000000000000000000000000000", ""].includes(plans[vaultPlan]?.user_plan_vault) && (
 											<div className="mx-auto text-center">
-												<button className="btn-action-vault">Create a Vault</button>
+												<button className="btn-action-vault" onClick={createVault}>
+													Create a Vault
+												</button>
 											</div>
 										)}
-										{vaultPlan === 1 && (
+										{vaultPlan !== -1 && !["0x0000000000000000000000000000000000000000", ""].includes(plans[vaultPlan]?.user_plan_vault) && (
 											<>
 												<div className="mb-4 pb-4 border-b-2 border-dashed">
 													<div className="mb-6">
 														<div className="mb-2">
 															<div className="font-bold">Automation address:</div>
-															<div className="text-sm italic">...</div>
-															<p className="text-sm italic">*please fill this address with ether to run the transaction</p>
+															<div className="text-sm italic font-medium">{plans[vaultPlan]?.user_plan_operator}</div>
+															<p className="text-xs italic">*please fill this address with ether to run the transaction</p>
 														</div>
 														<div className="mb-2">
 															<div className="font-bold">Automation ETH balance:</div>
-															<div className="text-sm italic">...</div>
+															<div className="text-sm italic">
+																<WalletBalance address={plans[vaultPlan]?.user_plan_operator as `0x${string}`} />
+															</div>
 														</div>
-														<button className="w-full btn-action-vault">Withdraw ETH from Automation</button>
+														{/* <button className="w-full btn-action-vault">Withdraw ETH from Automation</button> */}
 													</div>
 													<div className="mb-2">
 														<div className="font-bold">Vault address:</div>
-														<div className="text-sm italic">...</div>
+														<div className="text-sm italic font-medium">{plans[vaultPlan]?.user_plan_vault}</div>
 													</div>
 													<div className="mb-2">
 														<div className="font-bold">Vault ETH balance:</div>
-														<div className="text-sm italic">...</div>
+														<div className="text-sm italic">
+															<WalletBalance address={plans[vaultPlan]?.user_plan_vault as `0x${string}`} />
+														</div>
 													</div>
 													<div className="mb-2">
 														<div className="font-bold">Vault GHO balance:</div>
-														<div className="text-sm italic">...</div>
+														<div className="text-sm italic">
+															<WalletBalance address={plans[vaultPlan]?.user_plan_vault as `0x${string}`} token="0xd9692f1748afee00face2da35242417dd05a8615" />
+														</div>
 													</div>
 												</div>
-												<form>
+												<form onSubmit={submitWithdraw}>
 													<div className="mb-2">
 														<label className="text-sm font-semibold">Select Token</label>
 														<select required className="w-full p-2 border-1 rounded-xl bg-white" onChange={(e) => setVaultWithdrawToken(e.target.value)}>
@@ -498,13 +586,13 @@ function App() {
 																	</option>
 																);
 															})}
-															<option value="other" selected={!tokenVaultList.map((item) => item.id).includes(vaultWithdrawToken)}>
+															{/* <option value="other" selected={!tokenVaultList.map((item) => item.id).includes(vaultWithdrawToken)}>
 																Other token
-															</option>
+															</option> */}
 														</select>
-														{!tokenVaultList.map((item) => item.id).includes(vaultWithdrawToken) && (
+														{/* {!tokenVaultList.map((item) => item.id).includes(vaultWithdrawToken) && (
 															<input type="text" className="mt-1 w-full p-2 border-1 rounded-xl bg-white" placeholder="Enter source token contract address" />
-														)}
+														)} */}
 													</div>
 													<div className="mb-2">
 														<label className="text-sm font-semibold">Amount</label>
@@ -513,8 +601,8 @@ function App() {
 															type="number"
 															className="w-full p-2 border-1 rounded-xl bg-white"
 															placeholder="0.00"
-															value={planAmount}
-															onChange={(e) => setPlanAmount(Number(e.target.value))}
+															value={vaultWithdrawAmount}
+															onChange={(e) => setVaultWithdrawAmount(Number(e.target.value))}
 														/>
 													</div>
 													<button className="mt-4 w-full btn-action-vault">Withdraw Vault</button>
@@ -564,7 +652,6 @@ function App() {
 															return (
 																<div key={key} className="flex gap-2 p-2 hover:bg-gray-100">
 																	<div className="col-no text-center">{key + 1}</div>
-
 																	<div className="col-time text-center">{StringHelper.formatUnixTimestamp(Number(val.user_plan_tx_epoch))}</div>
 																	<div className="col-info">{val.user_plan_tx_info}</div>
 																	<div className="col-hash">

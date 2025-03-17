@@ -2,11 +2,12 @@ import axios from "axios";
 
 type PlanData = {
 	address: string;
-	name: string;
-	source_token: string;
-	destination_token: string;
-	amount: number;
-	frequency: number;
+	name?: string;
+	source_token?: string;
+	destination_token?: string;
+	amount?: number;
+	frequency?: number;
+	vault?: string;
 };
 
 const API_BASE_URL = "http://localhost:3000"; // Change this to your API base URL
