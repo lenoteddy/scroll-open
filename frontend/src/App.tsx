@@ -489,11 +489,11 @@ function App() {
 																onChange={(e) => setPlanFrequency(Number(e.target.value))}
 															>
 																<option value="">Choose frequency</option>
-																<option value="60">every minutes</option>
-																<option value="3600">every hour</option>
-																{/* <option value="daily">Daily</option>
-																<option value="weekly">Weekly</option>
-																<option value="monthly">Monthly</option> */}
+																{/* <option value="60">every minutes</option>
+																<option value="3600">every hour</option> */}
+																<option value="86400">Daily</option>
+																<option value="604800">Weekly</option>
+																<option value="2592000">Monthly</option>
 															</select>
 														</div>
 													</div>
