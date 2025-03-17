@@ -182,7 +182,10 @@ app.post("/plans", verifyHeader, async (req, res) => {
 		connection.release();
 		console.log("User Operator inserted!:", resultOperator);
 		console.log("User Plan inserted!:", resultPlan);
-		res.json({ message: "Plan created successfully!", data: { id: resultPlan.insertId, name, source_token, destination_token, amount, frequency } });
+		res.json({
+			message: "Plan created successfully!",
+			data: { id: resultPlan.insertId, name, source_token, destination_token, amount, frequency, operator, vault: "0x0000000000000000000000000000000000000000" },
+		});
 	} catch (err) {
 		console.error("Insert error:", err);
 		res.status(500).json({ status: "error", message: "Internal server error!" });
@@ -192,17 +195,50 @@ app.post("/plans", verifyHeader, async (req, res) => {
 app.put("/plans/:id", verifyHeader, async (req, res) => {
 	// user inputs
 	const planId = req.params.id;
-	const { address, name, source_token, destination_token, amount, frequency } = req.body;
+	const { address, name, source_token, destination_token, amount, frequency, vault } = req.body;
 	try {
-		// database transaction
-		const connection = await pool.getConnection();
-		const [resultPlan] = await connection.execute(
-			"UPDATE user_plan SET user_plan_address=?, user_plan_name=?, user_plan_source_token=?, user_plan_destination_token=?, user_plan_amount=?, user_plan_frequency=? WHERE user_plan_id=?",
-			[address, name, source_token, destination_token, amount, frequency, planId]
-		);
-		connection.release();
-		console.log("User Plan updated!:", resultPlan);
-		res.json({ message: "Plan updated successfully!", data: { name, source_token, destination_token, amount, frequency } });
+		const updateFields = [];
+		const updateValues = [];
+		if (address !== undefined) {
+			updateFields.push("user_plan_address=?");
+			updateValues.push(address);
+		}
+		if (name !== undefined) {
+			updateFields.push("user_plan_name=?");
+			updateValues.push(name);
+		}
+		if (source_token !== undefined) {
+			updateFields.push("user_plan_source_token=?");
+			updateValues.push(source_token);
+		}
+		if (destination_token !== undefined) {
+			updateFields.push("user_plan_destination_token=?");
+			updateValues.push(destination_token);
+		}
+		if (amount !== undefined) {
+			updateFields.push("user_plan_amount=?");
+			updateValues.push(amount);
+		}
+		if (frequency !== undefined) {
+			updateFields.push("user_plan_frequency=?");
+			updateValues.push(frequency);
+		}
+		if (vault !== undefined) {
+			updateFields.push("user_plan_vault=?");
+			updateValues.push(vault);
+		}
+		if (updateFields.length > 0) {
+			updateValues.push(planId);
+			// database transaction
+			const connection = await pool.getConnection();
+			const query = `UPDATE user_plan SET ${updateFields.join(", ")} WHERE user_plan_id=?`;
+			const [resultPlan] = await connection.execute(query, updateValues);
+			connection.release();
+			console.log("User Plan updated!:", resultPlan);
+			res.json({ message: "Plan updated successfully!", data: { name, source_token, destination_token, amount, frequency, vault } });
+		} else {
+			res.json({ message: "No data updated!" });
+		}
 	} catch (err) {
 		console.error("Insert error:", err);
 		res.status(500).json({ status: "error", message: "Internal server error!" });
